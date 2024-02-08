@@ -1,44 +1,46 @@
 <?php
 session_start();
 
-include_once './config/dbconnect.php';
+require_once './config/dbconnect.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
-    $email = mysqli_real_escape_string($conn, $_POST['username']);
-    $password = mysqli_real_escape_string($conn, $_POST['password']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['login'])) {
+        $email = $_POST['username'];
+        $password = $_POST['password'];
 
-    try {
-        $stmt = $conn->prepare("SELECT user_id, email, password, isAdmin FROM users WHERE email = ?");
-        $stmt->bind_param('s', $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $userRow = $result->fetch_assoc();
+        try {
+            $stmt = $conn->prepare('SELECT user_id, email, password, isAdmin FROM users WHERE email = ?');
+            $stmt->bind_param('s', $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $user = $result->fetch_assoc();
 
-        if ($userRow && password_verify($password, $userRow['password'])) {
-            $_SESSION['username'] = $email;
-            $_SESSION['is_admin'] = (bool) $userRow['isAdmin'];
+            if ($user && password_verify($password, $user['password'])) {
+                $_SESSION['username'] = $email;
+                $_SESSION['is_admin'] = (bool) $user['isAdmin'];
 
-            if ($_SESSION['is_admin']) {
-                header("Location: index.php");
+                // Redirection conditionnelle en fonction du statut admin
+                if ($user['isAdmin']) {
+                    header('Location: index.php');  // Redirection vers index.php pour les admins
+                } else {
+                    header('Location: user.php');   // Redirection vers user.php pour les utilisateurs standards
+                }
+                exit();
             } else {
-                header("Location: user.php");
+                header('Location: login.php?error=1');
+                exit();
             }
-            exit();
-        } else {
-            header("Location: login.php?error=1");
+        } catch (Exception $e) {
+            error_log('Erreur d\'authentification : ' . $e->getMessage(), 0);
+            header('Location: login.php?error=2');
             exit();
         }
-    } catch (Exception $e) {
-        error_log("Authentication error: " . $e->getMessage(), 0);
-        header("Location: login.php?error=2");
+    } elseif (isset($_POST['register'])) {
+        header('Location: register.php');
         exit();
     }
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['register'])) {
-    header("Location: register.php");
-    exit();
-}
 ?>
 
 <!DOCTYPE html>
